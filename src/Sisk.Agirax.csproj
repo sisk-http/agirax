@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net7.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- To build Agirax, you'll need to clone Sisk.Core first and add a reference to it here -->
+		<ProjectReference Include="..\..\core\src\Sisk.Core.csproj" />
+	</ItemGroup>
+
+</Project>
