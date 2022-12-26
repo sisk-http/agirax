@@ -137,8 +137,12 @@ namespace Sisk.Agirax.RouterParser
 
             HttpResponse agiraxResponse = new HttpResponse();
 
-            // proxy request
-            using (HttpClient client = new HttpClient())
+            using (HttpClientHandler clientHandler = new HttpClientHandler()
+            {
+                AllowAutoRedirect = false,
+                UseCookies = false
+            })
+            using (HttpClient client = new HttpClient(clientHandler))
             {
                 HttpRequestMessage reqMsg = new HttpRequestMessage(request.Method, $"http://127.0.0.1:{_nginxPort}{request.FullPath}");
 
@@ -198,7 +202,7 @@ namespace Sisk.Agirax.RouterParser
             }
         }
 
-        public Router CreateRouterFromNode(XmlNode routerNode)
+        public Router GetRouter(XmlNode routerNode)
         {
             Router sPhp = new Router();
             sPhp.SetRoute(new Route(RouteMethod.Any, ".*", null, ServePhp, null)

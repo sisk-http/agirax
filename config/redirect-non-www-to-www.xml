@@ -1,0 +1,34 @@
+<!-- 
+
+    redirect-non-www-to-www.xml
+
+    This example shows how you can redirect an website from non-www to www
+    (or any other host to the desired host).
+
+-->
+
+<Agirax>
+    <ServerConfiguration>
+        <DefaultEncoding>UTF-8</DefaultEncoding>
+        <Verbose>Detailed</Verbose>
+    </ServerConfiguration>
+    <ListeningHosts>
+        <ListeningHost Name="Non-www" Hostname="localhost">
+            <Endpoints>
+                <Endpoint Port="80" Secure="False" />
+            </Endpoints>
+            <RequestHandlers>
+                <RequestHandler Type="RewriteHost" In="localhost" Out="www.localhost" />
+            </RequestHandlers>
+            <Router Type="Empty" />
+        </ListeningHost>
+    </ListeningHosts>
+    <ListeningHosts>
+        <ListeningHost Name="My static website with cache" Hostname="www.localhost">
+            <Endpoints>
+                <Endpoint Port="80" Secure="False" />
+            </Endpoints>
+            <Router Type="Static" RootDirectory="C:\wwwroot\blog" Index="index.html" />
+        </ListeningHost>
+    </ListeningHosts>
+</Agirax>

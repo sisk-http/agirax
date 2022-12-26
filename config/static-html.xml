@@ -1,0 +1,23 @@
+<!-- 
+
+    static-html.xml
+
+    This example shows how to host an static website, like html, javascript and css with
+    Agirax.
+
+-->
+
+<Agirax>
+    <ServerConfiguration>
+        <DefaultEncoding>UTF-8</DefaultEncoding>
+        <Verbose>Detailed</Verbose>
+    </ServerConfiguration>
+    <ListeningHosts>
+        <ListeningHost Name="My static website" Hostname="localhost">
+            <Endpoints>
+                <Endpoint Port="80" Secure="False" />
+            </Endpoints>
+            <Router Type="Static" RootDirectory="C:\wwwroot\blog" Index="index.html" />
+        </ListeningHost>
+    </ListeningHosts>
+</Agirax>

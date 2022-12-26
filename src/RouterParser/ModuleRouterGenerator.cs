@@ -14,7 +14,7 @@ namespace Sisk.Agirax.RouterParser
             RelativePath = relativePath ?? throw new ArgumentNullException(nameof(relativePath));
         }
 
-        public Router CreateRouterFromNode(XmlNode routerNode)
+        public Router GetRouter(XmlNode routerNode)
         {
             string routerFilePath = Path.Combine(RelativePath, routerNode.Attributes!["File"]!.Value);
             string routerEntrypoint = routerNode.Attributes!["EntryPoint"]!.Value;

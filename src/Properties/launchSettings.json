@@ -2,7 +2,7 @@
   "profiles": {
     "Sisk.Agirax": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\Users\\gscat\\source\\repos\\Scalar Infrastructure Interface\\Scalar Infrastructure Interface\\bin\\Debug\\net7.0\\agirax-config-debug.xml\""
+      "commandLineArgs": "\"C:\\Users\\gscat\\source\\repos\\Sisk Environment\\agirax\\config\\redirect-non-www-to-www.xml\""
     }
   }
 }

@@ -1,0 +1,31 @@
+<!-- 
+
+    sisk-module.xml
+
+    This example shows how to host an Sisk router module.
+
+-->
+
+<Agirax>
+    <ServerConfiguration>
+        <DefaultEncoding>UTF-8</DefaultEncoding>
+        <Verbose>Detailed</Verbose>
+    </ServerConfiguration>
+    <ListeningHosts>
+        <ListeningHost Name="My cool API" Hostname="localhost">
+            <CrossOriginResourceSharingPolicy>
+                <AllowHeaders>*</AllowHeaders>
+                <AllowMethods>*</AllowMethods>
+                <AllowOrigins>*</AllowOrigins>
+                <MaxAge>3600</MaxAge>
+            </CrossOriginResourceSharingPolicy>
+            <Router Type="Module" File="path-to-lib.dll" EntryPoint="MyCoolApi.Startup">
+                <Parameter Name="DictionaryValue">
+                    This value will be available under
+                    setupParameters on RouterFactory.Setup at the entry point.
+                </Parameter>
+                <Parameter Name="DatabaseConnection">aaa,bbb,ccc</Parameter>
+            </Router>
+        </ListeningHost>
+    </ListeningHosts>
+</Agirax>

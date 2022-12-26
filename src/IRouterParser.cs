@@ -5,6 +5,6 @@ namespace Sisk.Agirax
 {
     internal interface IRouterGenerator
     {
-        public Router CreateRouterFromNode(XmlNode routerNode);
+        public Router GetRouter(XmlNode routerNode);
     }
 }

@@ -23,12 +23,22 @@ namespace Sisk.Agirax.RequestHandlerParser
                 long length = res.Content?.Headers.ContentLength ?? 0;
                 if (length < ServerCache.IndividualMaxSize && (ServerCache.UsedSize + length < ServerCache.MaxHeapSize))
                 {
+
+                    if (ServerCache.AllowedContentTypes != null && ServerCache.AllowedContentTypes.Length != 0)
+                    {
+                        if (!ServerCache.AllowedContentTypes.Contains(res.Content!.Headers.ContentType?.MediaType ?? "-"))
+                        {
+                            return null;
+                        }
+                    }
+
                     return ServerCache.CacheRequest(new ServerCache.Cache()
                     {
                         Response = res,
                         Expires = TimeSpan.FromHours(6),
                         Path = request.FullPath,
-                        RequestBody = request.Body
+                        RequestBody = request.Body,
+                        Authority = request.Authority
                     });
                 }
             }
@@ -46,7 +56,8 @@ namespace Sisk.Agirax.RequestHandlerParser
         public long IndividualMaxSize { get; set; }
         public long UsedSize { get; set; }
         public long MaxHeapSize { get; set; }
-        public string Hostname { get; set; }
+        public string Authority { get; set; } = "";
+        public string[]? AllowedContentTypes;
 
         public HttpResponse CacheRequest(Cache cache)
         {
@@ -63,7 +74,7 @@ namespace Sisk.Agirax.RequestHandlerParser
                 for (int i = 0; i < Repository.Count; i++)
                 {
                     Cache cache = Repository[i];
-                    if (cache.Path == req.Path)
+                    if (req.Authority == cache.Authority && cache.Path == req.Path)
                     {
                         if (cache.RequestBody != null && string.Compare(req.Body, cache.RequestBody) != 0)
                         {
@@ -91,7 +102,9 @@ namespace Sisk.Agirax.RequestHandlerParser
 
         public HttpResponse? Execute(HttpRequest request, HttpContext context)
         {
-            if (request.GetQueryValue("No-Cache") != null)
+            if (request.GetQueryValue("No-Cache") != null
+             || request.GetHeader("Cache-Control") == "no-cache"
+             || request.GetHeader("Cache-Control") == "no-store")
                 return null;
             HttpResponse? cacheRes = GetCache(request)?.Response;
             if (cacheRes != null)
@@ -110,6 +123,7 @@ namespace Sisk.Agirax.RequestHandlerParser
             protected internal DateTime CachedAt { get; set; } = DateTime.UtcNow;
             public TimeSpan Expires { get; set; } = TimeSpan.FromMinutes(10);
             public bool IsExpired() => DateTime.UtcNow > (CachedAt + Expires);
+            public string Authority { get; set; }
         }
     }
 }

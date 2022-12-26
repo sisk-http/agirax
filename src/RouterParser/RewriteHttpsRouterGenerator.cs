@@ -5,7 +5,7 @@ namespace Sisk.Agirax.RouterParser
 {
     internal class RewriteHttpsRouterGenerator : IRouterGenerator
     {
-        public Router CreateRouterFromNode(XmlNode routerNode)
+        public Router GetRouter(XmlNode routerNode)
         {
             Router r = new Router();
             r.SetRoute(new Route(RouteMethod.Any, ".*", null, (req) =>

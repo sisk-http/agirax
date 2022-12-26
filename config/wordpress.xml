@@ -1,0 +1,32 @@
+<!-- 
+
+    wordpress.xml
+
+    This example shows how to host an wordpress application with PHP proxy.
+
+-->
+
+<Agirax>
+    <ServerConfiguration>
+        <DefaultEncoding>UTF-8</DefaultEncoding>
+        <Verbose>Detailed</Verbose>
+    </ServerConfiguration>
+    <ListeningHosts>
+        <ListeningHost Name="Wordpress test" Hostname="sisk-test.test">
+            <Endpoints>
+                <Endpoint Port="80" Secure="False" />
+                <Endpoint Port="443" Secure="True" />
+            </Endpoints>
+            <RequestHandlers>
+                <RequestHandler Type="Cache" HeapSize="16M" MaxItemSize="5M">
+                    <Content-Types>
+                        <Content-Type>text/html</Content-Type>
+                        <Content-Type>image/png</Content-Type>
+                        <Content-Type>image/jpeg</Content-Type>
+                    </Content-Types>
+                </RequestHandler>
+            </RequestHandlers>
+            <Router Type="PhpNginxProxy" RootDirectory="C:\laragon\www\sisk-test" Index="index.php" RedirectIndex="False" />
+        </ListeningHost>
+    </ListeningHosts>
+</Agirax>

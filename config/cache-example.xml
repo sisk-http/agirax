@@ -1,0 +1,41 @@
+<!-- 
+
+    static-html.xml
+
+    This example shows how to host an static website, like html, javascript and css with
+    Agirax.
+
+-->
+
+<Agirax>
+    <ServerConfiguration>
+        <DefaultEncoding>UTF-8</DefaultEncoding>
+        <Verbose>Detailed</Verbose>
+    </ServerConfiguration>
+    <ListeningHosts>
+        <ListeningHost Name="My static website with cache" Hostname="localhost">
+            <Endpoints>
+                <Endpoint Port="80" Secure="False" />
+            </Endpoints>
+            <RequestHandlers>
+                <RequestHandler Type="Cache" HeapSize="16M" MaxItemSize="5M">
+                    <Content-Types>
+                        <!-- Responses which matches these contents types will be cached -->
+                        <!-- If this parent node Content-Types ins't defined, all content types -->
+                        <!-- will be cached. -->
+                        <Content-Type>text/html</Content-Type>
+                        <Content-Type>image/png</Content-Type>
+                        <Content-Type>image/jpeg</Content-Type>
+                    </Content-Types>
+                </RequestHandler>
+            </RequestHandlers>
+            <Router Type="Static" RootDirectory="C:\wwwroot\blog" Index="index.html" />
+        </ListeningHost>
+    </ListeningHosts>
+</Agirax>
+
+<!--
+
+    Tip: you can see the cache usage by sending [TAB] on Agirax.
+
+ -->

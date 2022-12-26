@@ -153,7 +153,7 @@ namespace Sisk.Agirax.RouterParser
             }
         }
 
-        public Router CreateRouterFromNode(XmlNode routerNode)
+        public Router GetRouter(XmlNode routerNode)
         {
             Router sPhp = new Router();
             sPhp.SetRoute(new Route(RouteMethod.Any, ".*", null, ServePhp, null)

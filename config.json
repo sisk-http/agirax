@@ -1,0 +1,77 @@
+{
+    "configuration": {
+        "defaultEncoding": "UTF-8"
+    },
+    "hosts": [
+        {
+            "label": "Sisk docs",
+            "host": "*.localhost",
+            "listen": [
+                {
+                    "port": 80,
+                    "secure": false
+                },
+                {
+                    "port": 443,
+                    "secure": true
+                }
+            ],
+            "handlers": [
+                {
+                    "type": "RewriteHttps",
+                    "params": {}
+                },
+                {
+                    "type": "RewriteHost",
+                    "params": {
+                        "in": "localhost",
+                        "out": "www.localhost"
+                    }
+                }
+            ],
+            "router": {
+                "type": "static",
+                "params": {
+                    "rootDirectory": "C:\\Users\\gscat\\source\\repos\\Sisk\\Docs",
+                    "index": "index.html"
+                }
+            }
+        },
+        {
+            "label": "Wordpress website",
+            "host": "sisk-test.test",
+            "listen": [
+                {
+                    "port": 80,
+                    "secure": false
+                },
+                {
+                    "port": 443,
+                    "secure": true
+                }
+            ],
+            "handlers": [
+                {
+                    "type": "cache",
+                    "params": {
+                        "heapSize": "16M",
+                        "maxItemSize": "2M",
+                        "allowedContentTypes": [
+                            "text/html",
+                            "image/jpeg",
+                            "image/png"
+                        ]
+                    }
+                }
+            ],
+            "router": {
+                "type": "PhpNginxProxy",
+                "params": {
+                    "rootDirectory": "C:\\laragon\\www\\sisk-test",
+                    "indexFile": "index.php",
+                    "redirectToIndex": false
+                }
+            }
+        }
+    ]
+}

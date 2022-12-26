@@ -47,10 +47,10 @@ namespace Sisk.Agirax.RouterParser
             return res;
         }
 
-        public Router CreateRouterFromNode(XmlNode routerNode)
+        public Router GetRouter(XmlNode routerNode)
         {
             Router r = new Router();
-            r.SetRoute(new Route(RouteMethod.Get, ".*", null, ServeStaticDirectory, null)
+            r.SetRoute(new Route(RouteMethod.Any, ".*", null, ServeStaticDirectory, null)
             {
                 UseRegex = true
             });
