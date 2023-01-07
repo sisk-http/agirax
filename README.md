@@ -1,5 +1,7 @@
 ﻿# Agirax Hosting Server
 
+> At the moment, Agirax is designed to run only on Windows systems. We plan to port it to more platforms later.
+
 Agiras is an HTTP server that uses Sisk to host static files, Sisk modules and PHP applications. At the moment its development is still in the alpha phase, and therefore, **it should not be used for production**.
 
 Known issues:

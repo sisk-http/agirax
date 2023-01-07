@@ -11,8 +11,11 @@
 
     internal enum RequestHandlerType
     {
+        Rewrite,
         RewriteHttps,
         RewriteHost,
-        Cache
+        Cache,
+        Authorize,
+        Module
     }
 }

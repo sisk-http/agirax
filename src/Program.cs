@@ -1,45 +1,61 @@
 ﻿using Sisk.Agirax.RequestHandlerParser;
 using Sisk.Core.Http;
 using Sisk.Core.Routing.Handlers;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Reflection;
 using System.Xml;
-
+using static Sisk.Agirax.RequestHandlerParser.ServerCache;
 
 namespace Sisk.Agirax
 {
     internal class Program
     {
-        public const string VERSION = "v.0.5-alpha-4";
-        internal static List<int> extProcesses = new List<int>();
+        public const string VERSION = "v.0.5-alpha-6";
         internal static List<ServerCache> usingCaches = new List<ServerCache>();
-        internal static readonly string assemblyPath = Assembly.GetExecutingAssembly().Location;
+        internal static readonly string baseDirectory = System.AppContext.BaseDirectory;
         internal static string currentRelativePath = Directory.GetCurrentDirectory();
+        internal static HttpServerConfiguration configuration = new HttpServerConfiguration();
+        internal static ListeningHostRepository lhRepository = new ListeningHostRepository();
+        internal static NameValueCollection lhRouteRelation = new NameValueCollection();
+        internal static Task[] lhTaskQueue = new Task[] { };
+        internal static HttpServer? server = null!;
         internal static bool waitForExit = false;
-        private static long TotalConnectionsOpen = 0;
-        private static long TotalConnectionsClosedOk = 0;
-        private static long TotalConnectionsClosedErr = 0;
-        private static bool startedWithExtConfig = false;
+        internal static bool startedWithWarnings = false;
+        internal static long totalConnectionsOpen = 0;
+        internal static long totalConnectionsClosedOk = 0;
+        internal static long totalConnectionsClosedErr = 0;
+        internal static long total2xxRes = 0;
+        internal static long total3xxRes = 0;
+        internal static long total4xxRes = 0;
+        internal static long total5xxRes = 0;
+        internal static long totalReceived = 0;
+        internal static long totalSent = 0;
         private static bool delayedStart = false;
-        private static HttpServer? server = null!;
-        private static HttpServerConfiguration configuration = new HttpServerConfiguration();
         private static Process serverProcess = Process.GetCurrentProcess();
+        private static string[] startArgs = null!;
+        private static DateTime startDate = DateTime.Now;
 
-        static void Main(string[] args)
+        static void Header()
         {
-            Cli.Log("Initializing...");
+            Console.Clear();
+            Console.ResetColor();
 
-            // initialize main properties
-            DateTime startDate = DateTime.Now;
+            string rel = "DEBUG";
+
+#if RELEASE
+            rel = "REL";
+#endif
+
+            Console.WriteLine($"Agirax ({VERSION} [{rel}])");
+            Console.WriteLine("Licensed under Apache License 2.0");
+            Console.WriteLine("Visit: https://github.com/sisk-http/agirax");
+            Console.WriteLine();
+        }
+
+        static (XmlDocument, string) ReadConfigurationXml(string[] args)
+        {
             string inputFile;
-
-            waitForExit = args.Contains("/wait");
-            delayedStart = args.Contains("/delay-start");
-
-            if (delayedStart)
-            {
-                Thread.Sleep(1500);
-            }
 
             if (args.Length > 0)
             {
@@ -51,12 +67,19 @@ namespace Sisk.Agirax
                 }
 
                 currentRelativePath = Path.GetDirectoryName(inputFile)!;
-                startedWithExtConfig = true;
+                Directory.SetCurrentDirectory(currentRelativePath);
             }
             else
             {
                 inputFile = "config.xml";
+
+                if (!File.Exists(inputFile))
+                {
+                    Cli.TerminateWithError("Cannot open configuration file.");
+                }
             }
+
+            Cli.Log($"Reading configuration from {Path.GetFileName(inputFile)}");
 
             string fullInputFilePath = Path.GetFullPath(inputFile);
             string xmlContents = System.IO.File.ReadAllText(fullInputFilePath);
@@ -71,74 +94,105 @@ namespace Sisk.Agirax
                 Cli.TerminateWithError($"Cannot parse the input XML file at line {xmlExp.LineNumber}:{xmlExp.LinePosition}: {xmlExp.Message}");
             }
 
-            ListeningHost[] hosts = new ConfigParser(configuration).ParseConfiguration(xDoc);
+            return (xDoc, inputFile);
+        }
 
-            if (hosts.Length == 0)
-            {
-                Cli.TerminateWithError($"Cannot initialize Agirax: no listening hosts were loaded.");
-                return;
-            }
+        static void LoadConfigurationWrapper()
+        {
+            var config = ReadConfigurationXml(startArgs);
 
-            configuration.ListeningHosts = hosts.ToArray();
+            DateTime A = DateTime.Now;
 
-            server = new HttpServer(configuration);
-            server.OnConnectionOpen += Server_OnConnectionOpen;
-            server.OnConnectionClose += Server_OnConnectionClose;
-            server.Start();
+            ConfigParser.ParseConfiguration(config);
+            ServerController.Start();
 
-            Console.Clear();
+            Task.WaitAll(lhTaskQueue);
+            DateTime B = DateTime.Now;
 
-#if RELEASE
-            Console.WriteLine($"Agirax ({VERSION} [REL]) powered by Sisk ({server.GetVersion()})");
-#else
-            Console.WriteLine($"Agirax ({VERSION} [DEBUG SESSION]) powered by Sisk ({server.GetVersion()})");
-#endif
-            Console.WriteLine("Licensed under Apache License 2.0");
-            Console.WriteLine("Visit: https://github.com/CypherPotato/Sisk");
+            Cli.Log("Done!");
+            Cli.Log($"All listening hosts initialized in {(B - A).TotalMilliseconds:N0} ms.");
+
+            int hosts = lhRepository.Count;
             Console.WriteLine();
+            Console.WriteLine("Agirax service");
+            Console.WriteLine("    Listening hosts");
+            for (int i = 0; i < hosts; i++)
+            {//
+                ListeningHost h = lhRepository[i];
+                int ports = h.Ports.Length;
+                int handlers = h.Router?.GlobalRequestHandlers?.Length ?? 0;
+                bool isLastPort = false;
+                bool isLastLh = i == hosts - 1;
+                string? routerName = lhRouteRelation[h.Handle.ToString()];
 
-            foreach (ListeningHost listeningHost in configuration.ListeningHosts)
-            {
-                string name = listeningHost.Label ?? listeningHost.Hostname;
-                foreach (ListeningPort port in listeningHost.Ports)
+                Console.WriteLine($"    {(isLastLh ? '└' : '├')}─ {h.Label}");
+
+                for (int j = 0; j < ports; j++)
                 {
-                    string portString = "";
-                    if (port.Port != 80 && port.Port != 443)
-                        portString = $":{port.Port}";
-
-                    Console.WriteLine($"  {name,-40} => {(port.Secure ? "https" : "http")}://{listeningHost.Hostname}{portString}/");
-                    name = "";
+                    isLastPort = (j == ports - 1);
+                    ListeningPort p = h.Ports[j];
+                    Console.WriteLine($"    {(isLastLh ? " " : "│")}  {(isLastPort ? '└' : '├')}─ {(p.Secure ? "https" : "http")}://{h.Hostname}" +
+                        $"{(p.Port == 443 || p.Port == 80 ? "" : $":{p.Port}")}/");
                 }
-                if (listeningHost.Router.GlobalRequestHandlers != null)
-                    foreach (IRequestHandler handler in listeningHost.Router.GlobalRequestHandlers)
-                    {
-                        Console.WriteLine($"{new string(' ', 46)}+ {handler.GetType().Name}");
-                    }
-                Console.WriteLine();
+                for (int j = 0; j < handlers; j++)
+                {
+                    IRequestHandler r = h.Router!.GlobalRequestHandlers![j];
+                    Console.WriteLine($"    {(isLastLh ? " " : "│")}     ├─ ↓ {r.GetType().Name}");
+                }
+
+                Console.WriteLine($"    {(isLastLh ? " " : "│")}     └─ × {routerName ?? "Failed to start the listening host"}");
+                Console.WriteLine($"    {(isLastLh ? " " : "│")}");
             }
 
-            Console.WriteLine();
+            Console.WriteLine("");
             Console.WriteLine("Commands:");
-            Console.WriteLine();
+            Console.WriteLine("");
             Console.WriteLine("     [TAB]         Show statistics information");
             Console.WriteLine("     [BACKSPACE]   Clear the window");
-            Console.WriteLine("     [ENTER]       Reload the server");
+            Console.WriteLine("     [ENTER]       Soft reload the server");
             Console.WriteLine("     [ESC]         Stop the server");
-            Console.WriteLine();
+            Console.WriteLine("");
+        }
 
-            int restartRequested = 0;
+        static void Main(string[] args)
+        {
+            Cli.Log("Initializing...");
+
+            startArgs = args;
+            waitForExit = args.Contains("/wait");
+            delayedStart = args.Contains("/kpid");
+
+            if (delayedStart)
+            {
+                int delayedPid = Int32.Parse(args[Array.IndexOf(args, "/kpid") + 1]);
+                Process p = Process.GetProcessById(delayedPid);
+                p.WaitForExit();
+            }
+
+            LoadConfigurationWrapper();
             ConsoleKeyInfo key;
 
             do
             {
-                key = Console.ReadKey();
+                key = Console.ReadKey(true);
                 if (key.Key == ConsoleKey.Enter)
                 {
-                    restartRequested = 1;
-                }
-                else if (key.Key == ConsoleKey.X)
-                {
-                    restartRequested = 2;
+                    server?.Dispose();
+                    configuration.Dispose();
+                    usingCaches.Clear();
+                    lhRepository.Clear();
+                    lhRouteRelation.Clear();
+                    lhTaskQueue = new Task[] { };
+                    total2xxRes = 0;
+                    total3xxRes = 0;
+                    total4xxRes = 0;
+                    total5xxRes = 0;
+                    totalReceived = 0;
+                    totalSent = 0;
+                    totalConnectionsOpen = 0;
+                    totalConnectionsClosedOk = 0;
+                    totalConnectionsClosedErr = 0;
+                    LoadConfigurationWrapper();
                 }
                 else if (key.Key == ConsoleKey.Backspace)
                 {
@@ -148,74 +202,42 @@ namespace Sisk.Agirax
                 {
                     var i = (DateTime.Now - startDate);
                     Console.WriteLine();
-                    Console.WriteLine("Statistics:");
-                    Console.WriteLine($"  {"Running for",-30} : {i.Days} days, {i.Hours}h, {i.Minutes}m and {i.Seconds}s");
-                    Console.WriteLine($"  {"Start date",-30} : {startDate}");
-                    Console.WriteLine($"  {"Openned connections",-30} : {TotalConnectionsOpen}");
-                    Console.WriteLine($"  {"Closed OK connections",-30} : {TotalConnectionsClosedOk}");
-                    Console.WriteLine($"  {"Error connections",-30} : {TotalConnectionsClosedErr}");
-                    Console.WriteLine($"  {"Memory usage",-30} : {Util.IntToHumanSize(serverProcess.WorkingSet64)}");
-                    Console.WriteLine($"  {"Peak Memory usage",-30} : {Util.IntToHumanSize(serverProcess.PeakWorkingSet64)}");
-                    Console.WriteLine("Server caches:");
-                    foreach (ServerCache cache in usingCaches)
+                    Console.WriteLine();
+                    Console.WriteLine($"Statistics:");
+                    Console.WriteLine($"  ├─ Server statistics");
+                    Console.WriteLine($"  │  ├─ {"Running for",-30} : {i.Days} days, {i.Hours}h, {i.Minutes}m and {i.Seconds}s");
+                    Console.WriteLine($"  │  ├─ {"Start date",-30} : {startDate}");
+                    Console.WriteLine($"  │  ├─ {"Openned connections",-30} : {totalConnectionsOpen}");
+                    Console.WriteLine($"  │  ├─ {"Closed OK connections",-30} : {totalConnectionsClosedOk}");
+                    Console.WriteLine($"  │  ├─ {"Error connections",-30} : {totalConnectionsClosedErr}");
+                    Console.WriteLine($"  │  ├─ {"Received bytes",-30} : {Util.IntToHumanSize(totalReceived)}");
+                    Console.WriteLine($"  │  ├─ {"Sent bytes",-30} : {Util.IntToHumanSize(totalSent)}");
+                    Console.WriteLine($"  │  ├─ {"Memory usage",-30} : {Util.IntToHumanSize(serverProcess.WorkingSet64)}");
+                    Console.WriteLine($"  │  └─ {"Peak Memory usage",-30} : {Util.IntToHumanSize(serverProcess.PeakWorkingSet64)}");
+                    Console.WriteLine($"  │");
+                    Console.WriteLine($"  ├─ Responses by Status codes");
+                    Console.WriteLine($"  │  ├─ {"2xx responses",-30} : {total2xxRes}");
+                    Console.WriteLine($"  │  ├─ {"3xx responses",-30} : {total3xxRes}");
+                    Console.WriteLine($"  │  ├─ {"4xx responses",-30} : {total4xxRes}");
+                    Console.WriteLine($"  │  └─ {"5xx responses",-30} : {total5xxRes}");
+                    Console.WriteLine($"  │");
+                    Console.WriteLine($"  └─ Server caches:");
+                    int totalCaches = usingCaches.Count;
+                    if (totalCaches == 0)
                     {
-                        Console.WriteLine($"  {cache.Authority,-30} : {Util.IntToHumanSize(cache.UsedSize)}/{Util.IntToHumanSize(cache.MaxHeapSize)}");
+                        Console.WriteLine($"     └─ There's no server cache enabled.");
                     }
-
+                    else
+                    {
+                        for (int b = 0; b < totalCaches; b++)
+                        {
+                            ServerCache cache = usingCaches[b];
+                            Console.WriteLine($"     {(b == totalCaches - 1 ? '└' : '├')}─ {cache.Authority,-30} : {Util.IntToHumanSize(cache.UsedSize)}/{Util.IntToHumanSize(cache.MaxHeapSize)}");
+                        }
+                    }
+                    Console.WriteLine();
                 }
-            } while (key.Key != ConsoleKey.Escape && restartRequested <= 0);
-
-            Console.WriteLine("Terminating...");
-            if (restartRequested == 1)
-            {
-                string cmd = $"{Util.EncodeParameterArgument(assemblyPath)} ";
-
-                if (!startedWithExtConfig)
-                {
-                    cmd += "config.xml ";
-                }
-
-                foreach (string arg in args)
-                    cmd += Util.EncodeParameterArgument(arg) + " ";
-
-                cmd += "/delay-start";
-
-                Process.Start("dotnet", cmd);
-            }
-            DisposeResources();
-        }
-
-        static void DisposeResources()
-        {
-            if (server != null)
-            {
-                server.Dispose();
-            }
-
-            TotalConnectionsOpen = 0;
-            TotalConnectionsClosedErr = 0;
-            TotalConnectionsClosedOk = 0;
-
-            extProcesses.Clear();
-            usingCaches.Clear();
-            Environment.Exit(0);
-        }
-
-        static void Server_OnConnectionOpen(object sender, HttpRequest request)
-        {
-            TotalConnectionsOpen++;
-        }
-
-        static void Server_OnConnectionClose(object sender, HttpServerExecutionResult e)
-        {
-            if (e.Status == HttpServerExecutionStatus.Executed)
-            {
-                TotalConnectionsClosedOk++;
-            }
-            else
-            {
-                TotalConnectionsClosedErr++;
-            }
+            } while (key.Key != ConsoleKey.Escape);
         }
     }
 }

@@ -20,13 +20,19 @@ namespace Sisk.Agirax.RequestHandlerParser
             if (context.RouterResponse != null)
             {
                 HttpResponse res = context.RouterResponse;
+                string resContentType = res.Headers["content-type"] ?? res.Content?.Headers.ContentType?.MediaType ?? "-";
+
+                if (resContentType.Contains(';'))
+                    resContentType = resContentType.Substring(0, resContentType.IndexOf(";"));
+
+                resContentType = resContentType.ToLower().Trim();
+
                 long length = res.Content?.Headers.ContentLength ?? 0;
                 if (length < ServerCache.IndividualMaxSize && (ServerCache.UsedSize + length < ServerCache.MaxHeapSize))
                 {
-
                     if (ServerCache.AllowedContentTypes != null && ServerCache.AllowedContentTypes.Length != 0)
                     {
-                        if (!ServerCache.AllowedContentTypes.Contains(res.Content!.Headers.ContentType?.MediaType ?? "-"))
+                        if (!ServerCache.AllowedContentTypes.Contains(resContentType))
                         {
                             return null;
                         }
@@ -61,7 +67,7 @@ namespace Sisk.Agirax.RequestHandlerParser
 
         public HttpResponse CacheRequest(Cache cache)
         {
-            cache.Response.Headers.Add("X-Agirax-Cache", "NEW");
+            cache.Response.Headers.Add("X-Agirax-Cached-At", DateTime.Now.ToString("R"));
             UsedSize += cache.Response.Content?.Headers.ContentLength ?? 0;
             Repository.Add(cache);
             return cache.Response;
@@ -103,16 +109,11 @@ namespace Sisk.Agirax.RequestHandlerParser
         public HttpResponse? Execute(HttpRequest request, HttpContext context)
         {
             if (request.GetQueryValue("No-Cache") != null
-             || request.GetHeader("Cache-Control") == "no-cache"
-             || request.GetHeader("Cache-Control") == "no-store")
+             || request.Headers["Cache-Control"] == "no-cache"
+             || request.Headers["Cache-Control"] == "no-store")
                 return null;
-            HttpResponse? cacheRes = GetCache(request)?.Response;
-            if (cacheRes != null)
-            {
-                cacheRes.Headers.Set("X-Agirax-Cache", $"HIT-{DateTime.Now}");
-                return cacheRes;
-            }
-            return null;
+            Cache? cacheRes = GetCache(request);
+            return cacheRes?.Response;
         }
 
         public class Cache

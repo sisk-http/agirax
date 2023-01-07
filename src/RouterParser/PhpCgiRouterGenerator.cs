@@ -73,10 +73,11 @@ namespace Sisk.Agirax.RouterParser
                 process.StartInfo.RedirectStandardOutput = true;
                 process.StartInfo.RedirectStandardInput = true;
                 process.StartInfo.CreateNoWindow = true;
-                process.StartInfo.Arguments = rootPath + indexFile;
+                process.StartInfo.WorkingDirectory = RootDirectory;
+                process.StartInfo.Arguments = rootPath + indexFile + $" --no-chdir";
 
                 process.StartInfo.EnvironmentVariables.Clear();
-
+                //REQUEST_SCHEME
                 process.StartInfo.EnvironmentVariables.Add("GATEWAY_INTERFACE", "CGI/1.1");
                 process.StartInfo.EnvironmentVariables.Add("SERVER_PROTOCOL", "HTTP/1.1");
                 process.StartInfo.EnvironmentVariables.Add("REDIRECT_STATUS", "200");
@@ -84,20 +85,22 @@ namespace Sisk.Agirax.RouterParser
                 process.StartInfo.EnvironmentVariables.Add("SCRIPT_NAME", indexFile);
                 process.StartInfo.EnvironmentVariables.Add("SCRIPT_FILENAME", rootPath + indexFile);
                 process.StartInfo.EnvironmentVariables.Add("QUERY_STRING", request.QueryString);
-                process.StartInfo.EnvironmentVariables.Add("CONTENT_LENGTH", request.GetHeader("Content-Length") ?? "0");
-                process.StartInfo.EnvironmentVariables.Add("CONTENT_TYPE", request.GetHeader("Content-Type"));
+                process.StartInfo.EnvironmentVariables.Add("CONTENT_LENGTH", request.Headers["Content-Length"] ?? "0");
+                process.StartInfo.EnvironmentVariables.Add("CONTENT_TYPE", request.Headers["Content-Type"]);
                 process.StartInfo.EnvironmentVariables.Add("REQUEST_METHOD", request.Method.ToString());
-                process.StartInfo.EnvironmentVariables.Add("USER_AGENT", request.GetHeader("User-Agent"));
+                process.StartInfo.EnvironmentVariables.Add("REQUEST_SCHEME", request.IsSecure ? "https" : "http");
+                process.StartInfo.EnvironmentVariables.Add("USER_AGENT", request.Headers["User-Agent"]);
                 process.StartInfo.EnvironmentVariables.Add("SERVER_ADDR", "127.0.0.1");
                 process.StartInfo.EnvironmentVariables.Add("REMOTE_ADDR", request.Origin.ToString());
                 process.StartInfo.EnvironmentVariables.Add("REMOTE_PORT", "0");
-                process.StartInfo.EnvironmentVariables.Add("REFERER", request.GetHeader("Referer") ?? "");
+                process.StartInfo.EnvironmentVariables.Add("REFERER", request.Headers["Referer"] ?? "");
                 process.StartInfo.EnvironmentVariables.Add("REQUEST_URI", request.FullPath);
-                process.StartInfo.EnvironmentVariables.Add("HTTP_COOKIE", request.GetHeader("Cookie") ?? "");
-                process.StartInfo.EnvironmentVariables.Add("HTTP_ACCEPT", request.GetHeader("Accept") ?? "");
-                process.StartInfo.EnvironmentVariables.Add("HTTP_ACCEPT_CHARSET", request.GetHeader("Accept-Charset") ?? "");
-                process.StartInfo.EnvironmentVariables.Add("HTTP_ACCEPT_ENCODING", request.GetHeader("Accept-Encoding") ?? "");
-                process.StartInfo.EnvironmentVariables.Add("HTTP_ACCEPT_LANGUAGE", request.GetHeader("Accept-Language") ?? "");
+
+                foreach (string headerKey in request.Headers)
+                {
+                    process.StartInfo.EnvironmentVariables.Add("HTTP_" + headerKey.ToUpper().Replace('-', '_'), request.Headers[headerKey]);
+                }
+
                 process.StartInfo.EnvironmentVariables.Add("TMPDIR", tempPath);
                 process.StartInfo.EnvironmentVariables.Add("TEMP", tempPath);
 

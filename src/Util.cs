@@ -1,9 +1,33 @@
 ﻿using System.Text.RegularExpressions;
+using System.Xml;
+using System.Xml.Serialization;
 
 namespace Sisk.Agirax
 {
     internal class Util
     {
+        internal static T? GetXmlInnerTextAs<T>(XmlNode? node) where T : IParsable<T>
+        {
+            bool ok = T.TryParse(GetXmlInnerText(node), null, out T? result);
+            if (ok) return result; else return default;
+        }
+
+        internal static string? GetXmlInnerText(XmlNode? node, string? defaultValue = null)
+        {
+            return node?.InnerText ?? defaultValue;
+        }
+
+        internal static T? GetXmlAttributeAs<T>(XmlNode? node, string attributeName) where T : IParsable<T>
+        {
+            bool ok = T.TryParse(GetXmlAttribute(node, attributeName), null, out T? result);
+            if (ok) return result; else return default;
+        }
+
+        internal static string? GetXmlAttribute(XmlNode? node, string attributeName, string? defaultValue = null)
+        {
+            return node?.Attributes?[attributeName]?.Value ?? defaultValue;
+        }
+
         internal static string Combine(params string[] parts)
         {
             string[] newParts = parts.Select(p => p.Replace("\\", "/").Trim('/')).ToArray();

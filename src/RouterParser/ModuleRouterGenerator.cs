@@ -30,7 +30,7 @@ namespace Sisk.Agirax.RouterParser
             NameValueCollection parameters = new();
             foreach (XmlNode routeParameterNode in routerNode.SelectNodes("Parameter")!)
             {
-                parameters.Add(routeParameterNode.Attributes!["Name"]!.Value, routeParameterNode.InnerText);
+                parameters.Add(routeParameterNode.Attributes!["Name"]!.Value, routeParameterNode.InnerText.Trim());
             }
 
             RouterFactory appRouterFactory = (RouterFactory)Activator.CreateInstance(entrypoint)!;

@@ -4,7 +4,8 @@
     {
         private static void LogMessage(string level, string message)
         {
-            Console.WriteLine($"{"[" + level + "]",-7} {message}");
+            string prefix = $"{DateTime.Now:R}{level,6} : ";
+            Console.Write(prefix + string.Join("\n" + prefix, message.Split("\n")) + "\n");
         }
 
         internal static void Log(string message)
@@ -14,6 +15,7 @@
 
         internal static void Warn(string message)
         {
+            Program.startedWithWarnings = true;
             LogMessage("warn", message);
         }
 
